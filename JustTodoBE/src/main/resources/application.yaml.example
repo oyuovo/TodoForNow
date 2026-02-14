@@ -1,0 +1,22 @@
+# 复制此文件为 application.yaml 并填入实际配置
+# cp application.yaml.example application.yaml
+
+jwt:
+  secret: your-jwt-secret-here
+  expire-seconds: 604800  # 7 天
+
+spring:
+  application:
+    name: justtodobe
+  datasource:
+    url: jdbc:postgresql://localhost:5432/todo_db?currentSchema=public&sslmode=disable
+    username: postgres
+    password: your-database-password
+    driver-class-name: org.postgresql.Driver
+mybatis-plus:
+  type-aliases-package: justotodobe.entity
+  type-handlers-package: justotodobe.utils
+
+logging:
+  level:
+    justtodobe: debug

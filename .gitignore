@@ -1,0 +1,17 @@
+# 前端
+TodoWeb/node_modules/
+TodoWeb/dist/
+
+# 后端
+JustTodoBE/target/
+JustTodoBE/.idea/
+
+# 敏感配置（含数据库密码、JWT 密钥，请勿提交）
+JustTodoBE/src/main/resources/application.yaml
+
+# 系统
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.local
