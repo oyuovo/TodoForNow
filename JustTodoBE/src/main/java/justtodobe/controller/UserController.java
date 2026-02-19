@@ -1,6 +1,7 @@
 package justtodobe.controller;
 
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import justtodobe.DTO.LoginDTO;
 import justtodobe.DTO.ResultDTO;
 import justtodobe.DTO.UpdatePhotoRequest;
@@ -19,13 +20,13 @@ public class UserController {
     }
 
     @PatchMapping("/profile/photo")
-    public ResultDTO updatePhoto(@RequestBody UpdatePhotoRequest request) {
-        String photo = request != null && request.getPhoto() != null ? request.getPhoto() : "";
+    public ResultDTO updatePhoto(@Valid @RequestBody UpdatePhotoRequest request) {
+        String photo = request.getPhoto() != null ? request.getPhoto() : "";
         return userService.updatePhoto(photo);
     }
 
     @PostMapping("/login")
-    public ResultDTO login(@RequestBody LoginDTO loginDTO) {
+    public ResultDTO login(@Valid @RequestBody LoginDTO loginDTO) {
         return userService.login(loginDTO);
     }
 

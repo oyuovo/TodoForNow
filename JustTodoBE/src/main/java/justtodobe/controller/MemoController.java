@@ -1,6 +1,7 @@
 package justtodobe.controller;
 
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import justtodobe.DTO.ResultDTO;
 import justtodobe.DTO.SetMemoPathRequest;
 import justtodobe.service.MemoPathService;
@@ -18,8 +19,7 @@ public class MemoController {
     }
 
     @PostMapping("/memo-path")
-    public ResultDTO setMemoPath(@RequestBody SetMemoPathRequest request) {
-        String path = request != null && request.getMemopath() != null ? request.getMemopath() : "";
-        return memoPathService.setMemoPath(path);
+    public ResultDTO setMemoPath(@Valid @RequestBody SetMemoPathRequest request) {
+        return memoPathService.setMemoPath(request.getMemopath());
     }
 }

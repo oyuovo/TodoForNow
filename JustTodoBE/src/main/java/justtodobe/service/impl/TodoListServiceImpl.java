@@ -15,6 +15,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -89,7 +90,7 @@ public class TodoListServiceImpl implements TodoListService {
 
     @Override
     @Transactional
-    public ResultDTO addTodo(String listId, String context, String todoId) {
+    public ResultDTO addTodo(String listId, String context, String todoId, Integer timeset) {
         if (!isListOwnedByCurrentUser(listId)) {
             return ResultDTO.fail("无权操作该清单");
         }
@@ -97,6 +98,7 @@ public class TodoListServiceImpl implements TodoListService {
         todoItem.setItemid(todoId);
         todoItem.setListid(listId);
         todoItem.setContext(context);
+        todoItem.setTimeset(timeset != null ? timeset : 0);
         todoItem.setCreatetime(LocalDateTime.now());
         todoItem.setUpdatetime(LocalDateTime.now());
         int insert = todoItemMapper.insert(todoItem);
@@ -105,16 +107,20 @@ public class TodoListServiceImpl implements TodoListService {
 
     @Override
     @Transactional
-    public ResultDTO updateTodo(String listId, String todoId, String context) {
+    public ResultDTO updateTodo(String listId, String todoId, String context, Integer timeset) {
         if (!isListOwnedByCurrentUser(listId)) {
             return ResultDTO.fail("无权操作该清单");
         }
-        // 创建 UpdateWrapper 并添加双索引条件
         UpdateWrapper<TodoItem> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("listid", listId)
                 .eq("itemid", todoId)
-                .set("context", context)
                 .set("updatetime", LocalDateTime.now());
+        if (context != null) {
+            updateWrapper.set("context", context);
+        }
+        if (timeset != null) {
+            updateWrapper.set("timeset", timeset);
+        }
         int update = todoItemMapper.update(null, updateWrapper);
         return update > 0 ? ResultDTO.ok() : ResultDTO.fail("更新待办失败，listId 或 itemId 不匹配");
     }
@@ -126,6 +132,20 @@ public class TodoListServiceImpl implements TodoListService {
         }
         int delete = todoItemMapper.delete(new QueryWrapper<TodoItem>().eq("listid", listId).eq("itemid", todoId));
         return delete > 0 ? ResultDTO.ok() : ResultDTO.fail("删除待办失败，listId 或 itemId 不匹配");
+    }
+
+    @Override
+    @Transactional
+    public ResultDTO clearCompleted(String listId, List<String> itemIds) {
+        if (!isListOwnedByCurrentUser(listId)) {
+            return ResultDTO.fail("无权操作该清单");
+        }
+        if (itemIds == null || itemIds.isEmpty()) {
+            return ResultDTO.ok();
+        }
+        int deleted = todoItemMapper.delete(
+                new QueryWrapper<TodoItem>().eq("listid", listId).in("itemid", itemIds));
+        return ResultDTO.ok(Collections.singletonMap("deleted", deleted));
     }
 
     @Override

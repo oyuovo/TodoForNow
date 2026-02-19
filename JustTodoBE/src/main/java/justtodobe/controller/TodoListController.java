@@ -1,8 +1,12 @@
 package justtodobe.controller;
 
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
+
+import java.util.List;
 import justtodobe.DTO.AddTodoListRequest;
 import justtodobe.DTO.AddTodoRequest;
+import justtodobe.DTO.ClearCompletedRequest;
 import justtodobe.DTO.ResultDTO;
 import justtodobe.DTO.UpdateTodoListRequest;
 import justtodobe.DTO.UpdateTodoRequest;
@@ -21,15 +25,13 @@ public class TodoListController {
     }
 
     @PostMapping()
-    public ResultDTO addTodoList(@RequestBody AddTodoListRequest request) {
-        String name = request != null && request.getName() != null ? request.getName() : "";
-        return todoListService.addTodoList(name);
+    public ResultDTO addTodoList(@Valid @RequestBody AddTodoListRequest request) {
+        return todoListService.addTodoList(request.getName());
     }
 
     @PatchMapping("/{listId}")
-    public ResultDTO updateTodoList(@RequestBody UpdateTodoListRequest request, @PathVariable("listId") String listId) {
-        String name = request != null && request.getName() != null ? request.getName() : "";
-        return todoListService.updateTodoList(listId, name);
+    public ResultDTO updateTodoList(@Valid @RequestBody UpdateTodoListRequest request, @PathVariable("listId") String listId) {
+        return todoListService.updateTodoList(listId, request.getName());
     }
 
     @DeleteMapping("/{listId}")
@@ -38,23 +40,27 @@ public class TodoListController {
     }
 
     @PostMapping("/{listId}/todos")
-    public ResultDTO addTodo(@RequestBody AddTodoRequest request, @PathVariable("listId") String listId) {
-        String context = request != null && request.getContext() != null ? request.getContext() : "";
-        String todoId = request != null && request.getId() != null ? request.getId() : "";
-        return todoListService.addTodo(listId, context, todoId);
+    public ResultDTO addTodo(@Valid @RequestBody AddTodoRequest request, @PathVariable("listId") String listId) {
+        Integer timeset = request.getTimeset() != null ? request.getTimeset() : 0;
+        return todoListService.addTodo(listId, request.getContext(), request.getId(), timeset);
     }
 
     @PatchMapping("/{listId}/todos/{todoId}")
-    public ResultDTO updateTodo(@RequestBody UpdateTodoRequest request,
+    public ResultDTO updateTodo(@Valid @RequestBody UpdateTodoRequest request,
                                 @PathVariable("listId") String listId,
                                 @PathVariable("todoId") String todoId) {
-        String context = request != null && request.getContext() != null ? request.getContext() : "";
-        return todoListService.updateTodo(listId, todoId, context);
+        return todoListService.updateTodo(listId, todoId, request.getContext(), request.getTimeset());
     }
 
     @DeleteMapping("/{listId}/todos/{todoId}")
     public ResultDTO deleteTodo(@PathVariable("listId") String listId,
                                 @PathVariable("todoId") String todoId) {
         return todoListService.deleteTodo(listId, todoId);
+    }
+
+    @DeleteMapping("/{listId}/todos/completed")
+    public ResultDTO clearCompleted(@Valid @RequestBody ClearCompletedRequest request,
+                                    @PathVariable("listId") String listId) {
+        return todoListService.clearCompleted(listId, request.getItemIds());
     }
 }

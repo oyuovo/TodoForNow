@@ -13,6 +13,8 @@ public class TodoItem {
     String itemid;
     String context;
     String listid;
+    /** 0=非定时 1=定时未完成 3=定时已完成(前端不显示,定时恢复为1) */
+    Integer timeset;
     LocalDateTime createtime;
     LocalDateTime updatetime;
 }

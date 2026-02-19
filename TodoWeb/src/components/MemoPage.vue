@@ -1,4 +1,5 @@
 <template>
+  <div class="memo-page">
   <PromptModal
     v-model="showPathPrompt"
     title="请输入备忘录根路径（本地 .md 文件存放目录）"
@@ -44,39 +45,49 @@
 
     <footer class="memo-footer">
       <span v-if="saveMessage" class="memo-save-message">{{ saveMessage }}</span>
-      <button v-if="!isBrowseMode" type="button" class="memo-save-btn" @click="handleSave">
-        保存
+      <button v-if="!isBrowseMode" type="button" class="memo-footer-btn memo-save-btn" @click="handleSave" title="保存">
+        <AppIcon :icon="icons.save" :size="16" />
+        <span>保存</span>
       </button>
       <button
         type="button"
-        :class="['memo-mode-btn', isBrowseMode ? 'memo-mode-btn--primary' : 'memo-mode-btn--secondary']"
+        :class="['memo-footer-btn', 'memo-mode-btn', isBrowseMode ? 'memo-mode-btn--primary' : 'memo-mode-btn--secondary']"
+        :title="isBrowseMode ? '切换为编辑模式' : '切换为浏览模式'"
         @click="isBrowseMode = !isBrowseMode"
       >
-        {{ isBrowseMode ? '编辑' : '浏览' }}
+        <AppIcon :icon="isBrowseMode ? icons.editMode : icons.viewMode" :size="16" />
+        <span>{{ isBrowseMode ? '编辑' : '浏览' }}</span>
       </button>
       <button
         type="button"
-        class="memo-mode-btn memo-mode-btn--secondary memo-path-btn"
+        class="memo-footer-btn memo-mode-btn memo-mode-btn--secondary memo-path-btn"
+        title="设置备忘录存储路径"
         @click="handleSetPath"
       >
-        设置路径
+        <AppIcon :icon="icons.settings" :size="16" />
+        <span>设置路径</span>
       </button>
       <button
         type="button"
-        class="memo-mode-btn memo-mode-btn--secondary"
-        @click="handleOpenFolder"
+        class="memo-footer-btn memo-mode-btn memo-mode-btn--secondary"
         title="在文件管理器中打开当前备忘录所在文件夹"
+        @click="handleOpenFolder"
       >
-        打开文件夹
+        <AppIcon :icon="icons.folderOpen" :size="16" />
+        <span>打开文件夹</span>
       </button>
     </footer>
+  </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import AppIcon from './AppIcon.vue';
 import PromptModal from './PromptModal.vue';
+import { icons } from '../icons';
 import type { Memo } from '../types/memo';
 
 interface Props {
@@ -98,7 +109,8 @@ const emit = defineEmits<{
 
 const renderedMarkdown = computed(() => {
   if (!props.memo) return '';
-  return marked.parse(props.memo.content ?? '');
+  const raw = marked.parse(props.memo.content ?? '') as string;
+  return DOMPurify.sanitize(raw);
 });
 
 const saveMessage = ref('');

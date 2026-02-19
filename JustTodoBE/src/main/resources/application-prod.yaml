@@ -1,0 +1,4 @@
+# 桌面打包运行时使用，使后端支持 /api 前缀（与前端 VITE_API_BASE_URL + /api 匹配）
+server:
+  servlet:
+    context-path: /api

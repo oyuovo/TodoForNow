@@ -14,6 +14,14 @@
       defaultValue="新备忘录"
       @confirm="onMemoPromptConfirm"
     />
+    <PromptModal
+      v-model="showTodoListRenamePrompt"
+      title="请输入清单新名称（不超过 20 个字符）"
+      placeholder="清单名称"
+      :defaultValue="editingListName"
+      :maxLength="20"
+      @confirm="onTodoListRenameConfirm"
+    />
     <AlertModal v-model="showAlert" :message="alertMessage" />
     <template v-if="isLoggedIn">
   <div class="app-shell">
@@ -47,6 +55,7 @@
           @click="activeView = 'profile'"
         >
           <span class="nav-dot" />
+          <AppIcon :icon="icons.user" :size="16" class="nav-item-icon" />
           <span>个人信息</span>
         </button>
         <div class="nav-group">
@@ -57,6 +66,7 @@
             @click="activeView = 'todo'"
           >
             <span class="nav-dot" />
+            <AppIcon :icon="icons.list" :size="16" class="nav-item-icon" />
             <span>待办清单</span>
           </button>
           <div v-if="activeView === 'todo'" class="nav-sublist">
@@ -73,34 +83,45 @@
               >
                 {{ list.name }}
               </button>
-              <button
-                type="button"
-                class="nav-subitem-delete"
-                title="删除清单"
-                @click.stop="handleDeleteList(list)"
-              >
-                ×
-              </button>
+        <button
+          type="button"
+          class="nav-subitem-icon"
+          title="重命名清单"
+          @click.stop="handleRenameList(list)"
+        >
+          <AppIcon :icon="icons.edit" :size="14" />
+        </button>
+        <button
+          type="button"
+          class="nav-subitem-icon nav-subitem-delete"
+          title="删除清单"
+          @click.stop="handleDeleteList(list)"
+        >
+          <AppIcon :icon="icons.delete" :size="14" />
+        </button>
             </div>
             <button
               type="button"
               class="nav-subitem nav-subitem-new"
+              title="新建清单"
               @click="handleCreateTodoList"
             >
-              + 新清单
+              <AppIcon :icon="icons.add" :size="14" />
+              <span>新清单</span>
             </button>
           </div>
         </div>
         <div class="nav-group">
-          <button
-            type="button"
-            class="nav-item"
-            :class="{ active: activeView === 'memo' }"
-            @click="activeView = 'memo'"
-          >
-            <span class="nav-dot" />
-            <span>备忘录</span>
-          </button>
+        <button
+          type="button"
+          class="nav-item"
+          :class="{ active: activeView === 'memo' }"
+          @click="activeView = 'memo'"
+        >
+          <span class="nav-dot" />
+          <AppIcon :icon="icons.memo" :size="16" class="nav-item-icon" />
+          <span>备忘录</span>
+        </button>
           <div v-if="activeView === 'memo'" class="nav-sublist">
             <div
               v-for="memo in memos"
@@ -117,25 +138,35 @@
               </button>
               <button
                 type="button"
-                class="nav-subitem-delete"
+                class="nav-subitem-icon nav-subitem-delete"
                 title="删除备忘录"
                 @click.stop="handleDeleteMemo(memo)"
               >
-                ×
+                <AppIcon :icon="icons.delete" :size="14" />
               </button>
             </div>
             <button
               type="button"
               class="nav-subitem nav-subitem-new"
+              title="新建备忘录"
               @click="handleCreateMemo"
             >
-              + 新备忘录
+              <AppIcon :icon="icons.add" :size="14" />
+              <span>新备忘录</span>
             </button>
           </div>
         </div>
       </nav>
 
       <div class="sidebar-footer">
+        <button
+          type="button"
+          class="theme-toggle"
+          :title="theme.value === 'light' ? '切换为深色模式' : '切换为浅色模式'"
+          @click="theme.toggle()"
+        >
+          <AppIcon :icon="theme.value === 'light' ? icons.moon : icons.sun" :size="18" />
+        </button>
         <span class="sidebar-tip">更多功能 · 敬请期待</span>
       </div>
     </aside>
@@ -183,6 +214,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import AppIcon from './components/AppIcon.vue';
 import TodoPage from './components/TodoPage.vue';
 import ProfilePage from './components/ProfilePage.vue';
 import MemoPage from './components/MemoPage.vue';
@@ -192,10 +224,12 @@ import AlertModal from './components/AlertModal.vue';
 import type { Memo } from './types/memo';
 import type { TodoItem, TodoList } from './types/todo';
 import { auth } from './services/auth';
+import { theme } from './services/theme';
 import { memoLocalService } from './services/memoLocalService';
 import { todoApi } from './services/todoApi';
 import { userApi } from './services/userApi';
 import { getErrorMessage } from './services/http';
+import { icons } from './icons';
 
 const currentTime = ref('');
 let timeInterval: ReturnType<typeof setInterval> | null = null;
@@ -236,6 +270,9 @@ const memoBasePath = ref('');
 const activeMemoId = ref<string>('');
 const showTodoListPrompt = ref(false);
 const showMemoPrompt = ref(false);
+const showTodoListRenamePrompt = ref(false);
+const editingListId = ref<string>('');
+const editingListName = ref('');
 const showAlert = ref(false);
 const alertMessage = ref('');
 
@@ -377,6 +414,34 @@ async function handleDeleteMemo(memo: Memo) {
 
 function handleCreateTodoList() {
   showTodoListPrompt.value = true;
+}
+
+function handleRenameList(list: TodoList) {
+  editingListId.value = list.id;
+  editingListName.value = list.name;
+  showTodoListRenamePrompt.value = true;
+}
+
+async function onTodoListRenameConfirm(name: string) {
+  const listId = editingListId.value;
+  if (!listId) return;
+  const list = todoLists.value.find((l) => l.id === listId);
+  if (!list) return;
+  if (name === list.name) {
+    editingListId.value = '';
+    editingListName.value = '';
+    return;
+  }
+  try {
+    await todoApi.updateList(listId, { name });
+    list.name = name;
+  } catch (e) {
+    alertMessage.value = getErrorMessage(e, '重命名清单失败');
+    showAlert.value = true;
+  } finally {
+    editingListId.value = '';
+    editingListName.value = '';
+  }
 }
 
 async function onTodoListPromptConfirm(name: string) {

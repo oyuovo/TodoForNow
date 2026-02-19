@@ -18,8 +18,14 @@
             placeholder="输入待办事项，例如：完成前端页面设计..."
             @keyup.enter="handleAddTodo"
           />
-          <button class="primary-btn" @click="handleAddTodo">
-            添加
+          <label class="timeset-toggle" title="定时任务（每日恢复）">
+            <input v-model="draftTimeset" type="checkbox" />
+            <AppIcon :icon="icons.clock" :size="14" />
+            <span>定时</span>
+          </label>
+          <button class="primary-btn primary-btn-with-icon" @click="handleAddTodo" title="添加待办">
+            <AppIcon :icon="icons.add" :size="16" />
+            <span>添加</span>
           </button>
         </div>
         <p v-if="inputError" class="input-error">{{ inputError }}</p>
@@ -45,9 +51,26 @@
                 :checked="pendingRemoveIds.has(item.id)"
                 @change="handleCheckboxChange(item)"
               />
-              <span class="todo-text">
+              <template v-if="editingTodoId === item.id">
+                <input
+                  ref="editInputRef"
+                  type="text"
+                  class="todo-edit-input"
+                  v-model="editingTitle"
+                  @blur="handleEditBlur(item)"
+                  @keyup.enter="handleEditConfirm(item)"
+                  @keyup.escape="handleEditCancel"
+                />
+              </template>
+              <span
+                v-else
+                class="todo-text"
+                :class="{ 'todo-text--editable': !pendingRemoveIds.has(item.id) }"
+                @dblclick="handleStartEdit(item)"
+              >
                 {{ item.title }}
               </span>
+              <span v-if="(item.timeset ?? 0) === 1" class="todo-timeset-badge">定时</span>
               <span v-if="pendingRemoveIds.has(item.id)" class="todo-pending-hint">3 秒后移除，点击可取消</span>
             </label>
           </li>
@@ -65,8 +88,9 @@
         </div>
         <div class="footer-right">
           <span v-if="operationError" class="save-message">{{ operationError }}</span>
-          <button class="link-btn" type="button" @click="handleClearCompleted" :disabled="completedCount === 0">
-            清除已完成
+          <button class="link-btn link-btn-with-icon" type="button" @click="handleClearCompleted" :disabled="completedCount === 0" title="清除已完成">
+            <AppIcon :icon="icons.clear" :size="14" />
+            <span>清除已完成</span>
           </button>
         </div>
       </footer>
@@ -75,8 +99,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import AppIcon from './AppIcon.vue';
 import type { TodoItem, TodoList } from '../types/todo';
+import { icons } from '../icons';
 import { todoApi } from '../services/todoApi';
 import { getErrorMessage } from '../services/http';
 
@@ -102,26 +128,21 @@ const todos = computed<TodoItem[]>({
   },
 });
 const draftTitle = ref('');
+const draftTimeset = ref(false);
 const inputError = ref('');
 const draggingIndex = ref<number | null>(null);
 const operationError = ref('');
-/** 已打勾、等待 3 秒后移除的待办 id 集合 */
 const pendingRemoveIds = ref<Set<string>>(new Set());
-/** 每个待办的 3 秒定时器，用于取消时 clearTimeout */
 const pendingRemoveTimers = ref<Record<string, ReturnType<typeof setTimeout>>>({});
+const editingTodoId = ref<string | null>(null);
+const editingTitle = ref('');
+const editInputRef = ref<HTMLInputElement | null>(null);
 
-const completedCount = computed(() =>
-  todos.value.filter((t: TodoItem) => t.completed).length,
-);
+/** 已完成数量 = 处于 3 秒倒计时中的非定时任务（pendingRemoveIds） */
+const completedCount = computed(() => pendingRemoveIds.value.size);
 
 async function initializeFromBackend() {
-  try {
-    // 预留：后端接入时，可以在此处根据当前清单 ID 拉取数据
-    // 目前清单与待办数据由上层组件管理，这里不做初始化操作
-  } catch (error) {
-    // 可根据需要增加错误提示
-    // console.error('初始化待办失败', error);
-  }
+  // 待办由上层 fetchLists 拉取
 }
 
 function resetInput() {
@@ -142,17 +163,9 @@ function validateInput(title: string): boolean {
   return true;
 }
 
-/** 生成下一个待办 ID：T1, T2, T3... 删除后复用最小可用编号（如删 T2 后下一个仍是 T2） */
-function getNextTodoId(existingIds: string[]): string {
-  const used = new Set(
-    existingIds
-      .map((id) => /^T(\d+)$/.exec(id)?.[1])
-      .filter(Boolean)
-      .map(Number),
-  );
-  let n = 1;
-  while (used.has(n)) n++;
-  return `T${n}`;
+/** 生成全局唯一 ID，避免多清单下 itemid 主键冲突（如 T1 在不同清单重复） */
+function generateTodoId(): string {
+  return crypto.randomUUID();
 }
 
 async function handleAddTodo() {
@@ -164,32 +177,31 @@ async function handleAddTodo() {
   const title = draftTitle.value.trim();
   if (!validateInput(title)) return;
 
-  const id = getNextTodoId(todos.value.map((t) => t.id));
+  const id = generateTodoId();
+  const timeset = draftTimeset.value ? 1 : 0;
   const newTodo: TodoItem = {
     id,
     title,
     completed: false,
+    timeset,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
-  // 本地先更新 UI
   todos.value.unshift(newTodo);
   resetInput();
 
   try {
-    await todoApi.createTodo(props.list.id, { id, context: title });
+    await todoApi.createTodo(props.list.id, { id, context: title, timeset });
   } catch (e) {
     todos.value = todos.value.filter((t) => t.id !== newTodo.id);
     inputError.value = getErrorMessage(e, '创建待办失败');
   }
 }
 
-/** 前方案框：打勾后 3 秒移除；3 秒内再次点击可取消，方框恢复空白、待办保留 */
 function handleCheckboxChange(item: TodoItem) {
   const id = item.id;
   if (pendingRemoveIds.value.has(id)) {
-    // 用户反悔：取消定时器，恢复空白，待办保留
     const timer = pendingRemoveTimers.value[id];
     if (timer) clearTimeout(timer);
     delete pendingRemoveTimers.value[id];
@@ -197,16 +209,35 @@ function handleCheckboxChange(item: TodoItem) {
     next.delete(id);
     pendingRemoveIds.value = next;
   } else {
-    // 用户打勾：加入待移除集合，3 秒后执行删除
     pendingRemoveIds.value = new Set(pendingRemoveIds.value).add(id);
     const timer = window.setTimeout(() => {
-      doRemove(id);
+      const todo = todos.value.find((t: TodoItem) => t.id === id);
+      if (todo?.timeset === 1) {
+        doMarkScheduledComplete(id);
+      } else {
+        doRemove(id);
+      }
       delete pendingRemoveTimers.value[id];
       const next = new Set(pendingRemoveIds.value);
       next.delete(id);
       pendingRemoveIds.value = next;
     }, 3000);
     pendingRemoveTimers.value[id] = timer;
+  }
+}
+
+async function doMarkScheduledComplete(id: string) {
+  if (!props.list) return;
+  const index = todos.value.findIndex((t: TodoItem) => t.id === id);
+  if (index === -1) return;
+
+  const [removed] = todos.value.splice(index, 1);
+  try {
+    await todoApi.updateTodo(props.list.id, id, { timeset: 3 });
+  } catch (e) {
+    todos.value.splice(index, 0, removed);
+    operationError.value = getErrorMessage(e, '标记完成失败');
+    window.setTimeout(() => { operationError.value = ''; }, 3000);
   }
 }
 
@@ -228,16 +259,25 @@ async function doRemove(id: string) {
 
 async function handleClearCompleted() {
   if (!props.list) return;
-  const remaining = todos.value.filter((t: TodoItem) => !t.completed);
-  const removed = todos.value.filter((t: TodoItem) => t.completed);
-  if (removed.length === 0) return;
+  const toRemoveIds = Array.from(pendingRemoveIds.value);
+  if (toRemoveIds.length === 0) return;
 
-  todos.value = remaining;
+  // 清除所有倒计时
+  toRemoveIds.forEach((id) => {
+    const timer = pendingRemoveTimers.value[id];
+    if (timer) clearTimeout(timer);
+    delete pendingRemoveTimers.value[id];
+  });
+  pendingRemoveIds.value = new Set();
+
+  const removed = todos.value.filter((t) => toRemoveIds.includes(t.id));
+  todos.value = todos.value.filter((t) => !toRemoveIds.includes(t.id));
 
   try {
-    await todoApi.clearCompleted(props.list.id);
+    await todoApi.clearCompleted(props.list.id, toRemoveIds);
   } catch (e) {
     todos.value = [...todos.value, ...removed];
+    pendingRemoveIds.value = new Set(toRemoveIds);
     operationError.value = getErrorMessage(e, '清除已完成失败');
     window.setTimeout(() => { operationError.value = ''; }, 3000);
   }
@@ -262,12 +302,57 @@ function handleDragOver(index: number) {
 }
 
 function handleDrop(_index: number) {
-  // 预留：这里可以调用后端接口保存排序结果，例如：
-  // void todoApi.reorderTodos(todos.value.map(t => t.id));
+  // 可扩展：保存排序到后端
 }
 
 function handleDragEnd() {
   draggingIndex.value = null;
+}
+
+function handleStartEdit(item: TodoItem) {
+  if (pendingRemoveIds.value.has(item.id)) return;
+  editingTodoId.value = item.id;
+  editingTitle.value = item.title;
+  nextTick(() => editInputRef.value?.focus());
+}
+
+function handleEditCancel() {
+  editingTodoId.value = null;
+  editingTitle.value = '';
+}
+
+async function handleEditConfirm(item: TodoItem) {
+  const trimmed = editingTitle.value.trim();
+  if (!trimmed) {
+    handleEditCancel();
+    return;
+  }
+  if (trimmed === item.title) {
+    handleEditCancel();
+    return;
+  }
+  if (trimmed.length > 100) {
+    operationError.value = '待办内容请控制在 100 字以内';
+    window.setTimeout(() => { operationError.value = ''; }, 3000);
+    return;
+  }
+  const prevTitle = item.title;
+  item.title = trimmed;
+  editingTodoId.value = null;
+  editingTitle.value = '';
+  try {
+    await todoApi.updateTodo(props.list!.id, item.id, { context: trimmed });
+  } catch (e) {
+    item.title = prevTitle;
+    operationError.value = getErrorMessage(e, '更新待办失败');
+    window.setTimeout(() => { operationError.value = ''; }, 3000);
+  }
+}
+
+function handleEditBlur(item: TodoItem) {
+  if (editingTodoId.value === item.id) {
+    handleEditConfirm(item);
+  }
 }
 
 onMounted(() => {

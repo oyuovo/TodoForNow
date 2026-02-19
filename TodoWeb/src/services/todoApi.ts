@@ -3,10 +3,15 @@ import { httpRequestUnwrap } from './http';
 
 interface BackendTodoItem {
   item_id?: string | null;
+  itemid?: string | null;
   context?: string;
   list_id?: string | null;
+  listid?: string | null;
+  timeset?: number | null;
   create_time?: string | null;
+  createtime?: string | null;
   update_time?: string | null;
+  updatetime?: string | null;
 }
 
 interface BackendTodoList {
@@ -18,17 +23,23 @@ interface BackendTodoList {
 
 function mapBackendListToFrontend(b: BackendTodoList): TodoList {
   const id = (b.listid ?? b.listId) != null ? String(b.listid ?? b.listId) : '';
-  const todos: TodoItem[] = (b.todoItem ?? []).map((t) => ({
-    id: t.item_id != null ? String(t.item_id) : '',
-    title: t.context ?? '',
-    completed: false,
-    createdAt: t.create_time ?? new Date().toISOString(),
-    updatedAt: t.update_time ?? new Date().toISOString(),
-  }));
+  const rawItems = b.todoItem ?? [];
+  const todos: TodoItem[] = rawItems
+    .filter((t) => {
+      const ts = t.timeset ?? 0;
+      return ts !== 3;
+    })
+    .map((t) => ({
+      id: (t.item_id ?? t.itemid) != null ? String(t.item_id ?? t.itemid) : '',
+      title: t.context ?? '',
+      completed: false,
+      timeset: (t.timeset ?? 0) as 0 | 1 | 3,
+      createdAt: (t.create_time ?? t.createtime) ?? new Date().toISOString(),
+      updatedAt: (t.update_time ?? t.updatetime) ?? new Date().toISOString(),
+    }));
   return { id, name: b.name ?? '', todos };
 }
 
-/** 待办清单 & 待办项 API，统一走 { success, errorCode, data } 格式 */
 export const todoApi = {
   async fetchLists(includeTodos = true): Promise<TodoList[]> {
     const query = includeTodos ? '?includeTodos=true' : '?includeTodos=false';
@@ -47,7 +58,7 @@ export const todoApi = {
     if (raw != null && typeof raw === 'object' && ('listid' in raw || 'listId' in raw)) {
       return mapBackendListToFrontend(raw as BackendTodoList);
     }
-    // 业务成功但 data 为 null 或格式不符：用用户输入的 name 构造本地展示，刷新后会从数据库拉取
+    // data 为空时用 name 构造本地展示
     const id =
       raw != null && typeof raw === 'object' && 'id' in raw && raw.id != null && raw.id !== ''
         ? String(raw.id)
@@ -82,8 +93,10 @@ export const todoApi = {
     );
   },
 
-  /** 创建待办：仅需 id 和 context，格式如 { id: "T1", context: "待办内容" } */
-  async createTodo(listId: string, payload: { id: string; context: string }): Promise<void> {
+  async createTodo(
+    listId: string,
+    payload: { id: string; context: string; timeset?: number },
+  ): Promise<void> {
     if (!listId || listId.trim() === '') {
       throw new Error('清单 ID 不能为空，请先选择或创建清单');
     }
@@ -96,11 +109,10 @@ export const todoApi = {
     );
   },
 
-  /** 更新待办：仅需 context，格式如 { context: "新的待办内容" } */
   async updateTodo(
     listId: string,
     todoId: string,
-    payload: { context: string },
+    payload: { context?: string; timeset?: number },
   ): Promise<void> {
     await httpRequestUnwrap<TodoItem>(
       `/todo-lists/${encodeURIComponent(listId)}/todos/${encodeURIComponent(todoId)}`,
@@ -120,11 +132,13 @@ export const todoApi = {
     );
   },
 
-  async clearCompleted(listId: string): Promise<void> {
+  /** 批量删除处于「已完成」状态的待办（传入待删除的 itemId 列表） */
+  async clearCompleted(listId: string, itemIds: string[]): Promise<void> {
     await httpRequestUnwrap<void>(
       `/todo-lists/${encodeURIComponent(listId)}/todos/completed`,
       {
         method: 'DELETE',
+        body: JSON.stringify({ itemIds: itemIds ?? [] }),
       },
     );
   },
