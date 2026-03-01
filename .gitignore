@@ -1,6 +1,7 @@
 # 前端
 TodoWeb/node_modules/
 TodoWeb/dist/
+TodoWeb/release/
 
 # 后端
 JustTodoBE/target/
