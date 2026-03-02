@@ -5,6 +5,11 @@ jwt:
   secret: your-jwt-secret-here
   expire-seconds: 604800  # 7 天
 
+# 待办列表缓存 TTL 范围（秒），实际 TTL = base + random(0, range)
+todo-cache:
+  ttl-base-seconds: 300   # 5 分钟
+  ttl-range-seconds: 600  # 随机加 0~10 分钟，即 5~15 分钟
+
 spring:
   application:
     name: justtodobe
@@ -13,6 +18,13 @@ spring:
     username: postgres
     password: your-database-password
     driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: 192.168.12.130
+      port: 6379
+      password: your-redis-password  # 本地虚拟机密码，复制到 application.yaml 中填写
+      database: 0
+      timeout: 5000ms
 mybatis-plus:
   type-aliases-package: justotodobe.entity
   type-handlers-package: justotodobe.utils
