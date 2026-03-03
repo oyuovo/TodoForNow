@@ -142,5 +142,23 @@ export const todoApi = {
       },
     );
   },
+
+  async fetchStats(): Promise<{
+    totalLists: number;
+    totalTodos: number;
+    scheduledTotal: number;
+    scheduledCompleted: number;
+    normalTotal: number;
+  }> {
+    return httpRequestUnwrap<{
+      totalLists: number;
+      totalTodos: number;
+      scheduledTotal: number;
+      scheduledCompleted: number;
+      normalTotal: number;
+    }>('/todo-lists/stats', {
+      method: 'GET',
+    });
+  },
 };
 

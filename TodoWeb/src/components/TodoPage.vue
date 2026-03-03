@@ -141,10 +141,6 @@ const editInputRef = ref<HTMLInputElement | null>(null);
 /** 已完成数量 = 处于 3 秒倒计时中的非定时任务（pendingRemoveIds） */
 const completedCount = computed(() => pendingRemoveIds.value.size);
 
-async function initializeFromBackend() {
-  // 待办由上层 fetchLists 拉取
-}
-
 function resetInput() {
   draftTitle.value = '';
   inputError.value = '';
@@ -354,10 +350,6 @@ function handleEditBlur(item: TodoItem) {
     handleEditConfirm(item);
   }
 }
-
-onMounted(() => {
-  void initializeFromBackend();
-});
 
 onBeforeUnmount(() => {
   Object.values(pendingRemoveTimers.value).forEach((t) => clearTimeout(t as ReturnType<typeof setTimeout>));

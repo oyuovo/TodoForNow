@@ -128,7 +128,7 @@ function onInput(event: Event) {
 
 function handleSave() {
   emit('save');
-  saveMessage.value = '已保存（当前仅本地状态，后端待接入）';
+  saveMessage.value = '已保存到当前设备的备忘录文件夹';
 }
 
 function handleSetPath() {

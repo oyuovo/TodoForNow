@@ -26,8 +26,8 @@ spring:
       database: 0
       timeout: 5000ms
 mybatis-plus:
-  type-aliases-package: justotodobe.entity
-  type-handlers-package: justotodobe.utils
+  type-aliases-package: justtodobe.entity
+  type-handlers-package: justtodobe.utils
 
 logging:
   level:

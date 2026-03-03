@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import justtodobe.DTO.ResultDTO;
 import justtodobe.DTO.TodoDTO;
+import justtodobe.DTO.TodoStatsDTO;
 import justtodobe.config.TodoCacheProperties;
 import justtodobe.entity.TodoItem;
 import justtodobe.entity.TodoList;
@@ -257,5 +258,57 @@ public class TodoListServiceImpl implements TodoListService {
             // 序列化失败仅影响缓存，不影响返回
         }
         return ResultDTO.ok(todoListDTO);
+    }
+
+    @Override
+    public ResultDTO getTodoStats() {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            return ResultDTO.fail("用户未登录");
+        }
+        String prefix = listIdPrefixForCurrentUser();
+        if (prefix == null) {
+            return ResultDTO.fail("用户未登录");
+        }
+        QueryWrapper<TodoList> wrapper = new QueryWrapper<>();
+        wrapper.likeRight("listid", prefix);
+        List<TodoList> todoLists = todoListMapper.selectList(wrapper);
+        if (todoLists.isEmpty()) {
+            TodoStatsDTO empty = new TodoStatsDTO(0, 0, 0, 0, 0);
+            return ResultDTO.ok(empty);
+        }
+        List<String> listIds = todoLists.stream().map(TodoList::getListid).toList();
+        List<TodoItem> allItems = todoItemMapper.selectList(
+                new QueryWrapper<TodoItem>().in("listid", listIds));
+
+        long totalLists = todoLists.size();
+        long totalTodos = allItems.size();
+        long scheduledTotal = allItems.stream()
+                .filter(t -> {
+                    Integer ts = t.getTimeset();
+                    return ts != null && (ts == 1 || ts == 3);
+                })
+                .count();
+        long scheduledCompleted = allItems.stream()
+                .filter(t -> {
+                    Integer ts = t.getTimeset();
+                    return ts != null && ts == 3;
+                })
+                .count();
+        long normalTotal = allItems.stream()
+                .filter(t -> {
+                    Integer ts = t.getTimeset();
+                    return ts == null || ts == 0;
+                })
+                .count();
+
+        TodoStatsDTO stats = new TodoStatsDTO(
+                totalLists,
+                totalTodos,
+                scheduledTotal,
+                scheduledCompleted,
+                normalTotal
+        );
+        return ResultDTO.ok(stats);
     }
 }

@@ -63,4 +63,9 @@ public class TodoListController {
                                     @PathVariable("listId") String listId) {
         return todoListService.clearCompleted(listId, request.getItemIds());
     }
+
+    @GetMapping("/stats")
+    public ResultDTO getTodoStats() {
+        return todoListService.getTodoStats();
+    }
 }

@@ -23,4 +23,7 @@ public interface TodoListService {
 
     /** 批量删除指定清单下的多个待办（用于「清除已完成」） */
     ResultDTO clearCompleted(String listId, List<String> itemIds);
+
+    /** 获取当前登录用户的待办统计数据，用于前端统计/仪表盘视图 */
+    ResultDTO getTodoStats();
 }

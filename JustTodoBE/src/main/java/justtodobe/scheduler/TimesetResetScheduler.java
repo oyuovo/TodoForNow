@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import jakarta.annotation.Resource;
 import justtodobe.entity.TodoItem;
 import justtodobe.mapper.TodoItemMapper;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,6 +22,9 @@ public class TimesetResetScheduler {
     @Resource
     private TodoItemMapper todoItemMapper;
 
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
     @Scheduled(cron = "0 0 0 * * ?")
     public void resetTimesetCompletedToPending() {
         UpdateWrapper<TodoItem> wrapper = new UpdateWrapper<>();
@@ -28,6 +32,9 @@ public class TimesetResetScheduler {
         int updated = todoItemMapper.update(null, wrapper);
         if (updated > 0) {
             log.info("定时恢复：已将 {} 条 timeset=3 的待办恢复为未完成", updated);
+            // 每次批量更新后，清理所有待办列表缓存，确保前端能立刻看到最新 timeset
+            stringRedisTemplate.keys("todo:list:*")
+                    .forEach(stringRedisTemplate::delete);
         }
     }
 }
