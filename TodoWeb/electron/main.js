@@ -4,7 +4,6 @@ const fs = require('fs').promises;
 const { spawn } = require('child_process');
 const http = require('http');
 
-// 打包后的 exe 一定走生产；仅未打包且未显式设 NODE_ENV=production 时为开发
 const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
 const openDevTools = process.env.OPEN_DEVTOOLS === '1';
 let backendProcess = null;
@@ -47,7 +46,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      devTools: isDev, // 生产环境禁用 DevTools（用户无法 F12/右键检查）
+      devTools: isDev, // 仅开发环境启用 DevTools
     },
   });
 
@@ -61,7 +60,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   if (!isDev) {
-    // 生产环境：移除顶部菜单栏（File/Edit/View/Window/Help），不展示给最终用户
+    // 生产环境隐藏菜单栏
     Menu.setApplicationMenu(null);
     startBackend();
     const ok = await waitForBackend();
@@ -87,7 +86,7 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-// memoFs 桥接：使用 Node.js fs 读写本地 .md 文件
+// 本地 markdown 备忘录存储
 ipcMain.handle('memo-fs:list', async (_, basePath) => {
   try {
     const dir = path.resolve(basePath);
