@@ -16,3 +16,6 @@ Thumbs.db
 *.log
 .env
 .env.local
+
+# Cursor 配置与缓存
+.cursor/
