@@ -1,6 +1,7 @@
 package justtodobe.controller;
 
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import justtodobe.DTO.LoginDTO;
 import justtodobe.DTO.ResultDTO;
@@ -31,7 +32,12 @@ public class UserController {
     }
 
     @PostMapping("/logout")
-    public ResultDTO logout() {
-        return userService.logout();
+    public ResultDTO logout(HttpServletRequest request) {
+        String token = null;
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+        }
+        return userService.logout(token);
     }
 }

@@ -9,6 +9,7 @@ import justtodobe.DTO.UserDTO;
 import justtodobe.entity.User;
 import justtodobe.mapper.UserMapper;
 import justtodobe.service.UserService;
+import justtodobe.service.RedisAuthService;
 import justtodobe.utils.JwtUtil;
 import justtodobe.utils.UserContext;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,8 @@ public class UserServiceImpl implements UserService {
     private JwtUtil jwtUtil;
     @Resource
     private PasswordEncoder passwordEncoder;
+    @Resource
+    private RedisAuthService redisAuthService;
 
     @Override
     public ResultDTO updatePhoto(String photo) {
@@ -55,11 +58,16 @@ public class UserServiceImpl implements UserService {
             return ResultDTO.fail("用户id或密码错误");
         }
         String token = jwtUtil.generateToken(user);
+        long ttlSeconds = redisAuthService.getDefaultTtlSeconds();
+        redisAuthService.saveToken(token, user.getId(), ttlSeconds);
         return ResultDTO.ok(token);
     }
 
     @Override
-    public ResultDTO logout() {
+    public ResultDTO logout(String token) {
+        if (token != null && !token.isBlank()) {
+            redisAuthService.removeToken(token);
+        }
         return ResultDTO.ok();
     }
 }

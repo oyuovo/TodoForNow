@@ -1,10 +1,12 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
 const http = require('http');
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+// 打包后的 exe 一定走生产；仅未打包且未显式设 NODE_ENV=production 时为开发
+const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
+const openDevTools = process.env.OPEN_DEVTOOLS === '1';
 let backendProcess = null;
 
 function startBackend() {
@@ -45,12 +47,13 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: isDev, // 生产环境禁用 DevTools（用户无法 F12/右键检查）
     },
   });
 
   if (isDev) {
     win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools();
+    if (openDevTools) win.webContents.openDevTools();
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -58,6 +61,8 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   if (!isDev) {
+    // 生产环境：移除顶部菜单栏（File/Edit/View/Window/Help），不展示给最终用户
+    Menu.setApplicationMenu(null);
     startBackend();
     const ok = await waitForBackend();
     if (!ok) {

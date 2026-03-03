@@ -10,5 +10,6 @@ public interface UserService {
 
     ResultDTO login(LoginDTO loginDTO);
 
-    ResultDTO logout();
+    /** 登出并移除 Redis 中的 token；token 可为 null（兼容前端已清 token） */
+    ResultDTO logout(String token);
 }

@@ -9,6 +9,7 @@
     "prebuild:win": "cd ../JustTodoBE && mvn package -Dmaven.test.skip=true",
     "build:win": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ && set ELECTRON_BUILDER_BINARIES_MIRROR=https://cdn.npmmirror.com/binaries/electron-builder-binaries/ && npm run prebuild:win && vite build && electron-builder --win",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev:debug": "set OPEN_DEVTOOLS=1&& concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron": "electron .",
     "preview": "vite preview",
     "lint": "eslint . --ext .ts,.tsx,.vue --report-unused-disable-directives --max-warnings 0"
@@ -36,7 +37,6 @@
   },
   "overrides": {
     "minimatch": "^10.2.1",
-    "ajv": "^8.18.0",
     "tmp": "^0.2.4"
   },
   "build": {
